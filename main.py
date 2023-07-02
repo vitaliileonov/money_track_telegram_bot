@@ -1,10 +1,12 @@
-import logging, pickle, re
+import logging
+import pickle
+import re
 from datetime import datetime, timedelta
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler
 
-TOKEN_BOT = ''
-user_data = dict()
+TOKEN_BOT = palint
+user_data = {}
 list_category = ['food', 'water', 'gas']
 
 logging.basicConfig(
@@ -17,12 +19,14 @@ month_ago = datetime.now() - timedelta(weeks=4)
 current_date = datetime.now()
 
 class Cost:
+    """
+        transactions
+    """
     def __init__(self, type_cat: str, money: float, category: str, date_cost: datetime = None):
         self.type_cat = type_cat
         self.money = money
         self.category = category
         self.date_cost = date_cost
-        self.money = money
 
     def __str__(self):
         if self.type_cat == "income":
@@ -44,7 +48,6 @@ def load_data():
     except FileNotFoundError:
         user_data = {}
 
-
 async def start(update: Update, contex: CallbackContext) -> None:
     logging.info('Command "start" was triggerd')
     await update.message.reply_text(
@@ -57,10 +60,9 @@ async def start(update: Update, contex: CallbackContext) -> None:
         "/list all costs, options[week,month, all (income include)] \n"#5. Можливість переглядати всі витрати, витрати за місяць та за тиждень.
         "/rem [index] remove transaction\n"                         #6. Видаляти витрати або доходи
         "/clear  clear all transaction: \n"
-        "/st statistics today cost [weel, month, year] \n"   #5. Можливість переглядати всі витрати, витрати за місяць та за тиждень.
-        "/st [in] today income, [weel, month, year] \n" #5. Можливість переглядати всі витрати, витрати за місяць та за тиждень.
+        "/st statistics today cost [week, month, year] \n"   #5. Можливість переглядати всі витрати, витрати за місяць та за тиждень.
+        "/st [in] today income, [week, month, year] \n" #5. Можливість переглядати всі витрати, витрати за місяць та за тиждень.
         "[YYYY] - set year, [YYYY-M] set month\n"
-
     )
 
 async def add_cost(update: Update, context: CallbackContext) -> None:
@@ -70,7 +72,6 @@ async def add_cost(update: Update, context: CallbackContext) -> None:
     """
     user_id = update.message.from_user.id
     cost_parts = " ".join(context.args).split(",")
-    global list_category
     transaction_date = current_date
     if len(cost_parts) not in [2, 3]:
         await update.message.reply_text("Incorrect: example /cost 200,food or /cost 200.20,food,2023-01-02")
@@ -150,7 +151,6 @@ async def add_income(update: Update, context: CallbackContext) -> None:
 async def list_cost(update: Update, context: CallbackContext) -> None:
     user_id = update.message.from_user.id
     command_parts = context.args
-    global week_ago, month_ago
 
     if not user_data.get(user_id):
         await update.message.reply_text("You don't have any ...")
@@ -190,9 +190,12 @@ async def list_cost(update: Update, context: CallbackContext) -> None:
         await update.message.reply_text("No transaction")
 
 async def stats(update: Update, context: CallbackContext) -> None:
+    """
+        Format of stats  command
+        /st [],[],[]
+    """
     user_id = update.message.from_user.id
     command_parts = context.args
-    global week_ago, month_ago, current_date
 
     async def calc(res):   #calc and return sum in cat
         cat = {}
@@ -205,8 +208,8 @@ async def stats(update: Update, context: CallbackContext) -> None:
                 cat[category] += amount
             else:
                 cat[category] = amount
-        if cat == {}:
-            await update.message.reply_text(f"There is nothing")
+        if not cat:
+            await update.message.reply_text("There is nothing")
         else:
             for category, amount in cat.items():
                 await update.message.reply_text(f"{category}: {amount}")
@@ -217,7 +220,7 @@ async def stats(update: Update, context: CallbackContext) -> None:
 
     result = []
     if len(command_parts) > 2:
-        await update.message.reply_text(f"Incorrect option")
+        await update.message.reply_text("Incorrect option")
     else:
         if len(command_parts) == 0:  # /st(today costs)
             for i, t in enumerate(user_data[user_id]):
@@ -256,13 +259,13 @@ async def stats(update: Update, context: CallbackContext) -> None:
                 year, month = param.split("-")
                 year = int(year)
                 month = int(month)
-
                 for i, t in enumerate(user_data[user_id]):
+
                     if hasattr(t, 'type_cat') and \
                             t.type_cat == 'costs' and t.date_cost.year == year and t.date_cost.month == month:
                         result.append(f"{t.money}, {t.category}")
             else:
-                await update.message.reply_text(f"Unknown param.")
+                await update.message.reply_text("Unknown param.")
                 return
             await calc(result)
 
@@ -297,16 +300,23 @@ async def stats(update: Update, context: CallbackContext) -> None:
                             t.type_cat == 'income' and t.date_cost.year == year and t.date_cost.month == month:
                         result.append(f"{t.money}, {t.category}")
             else:
-                await update.message.reply_text(f"Unknown param.")
+                await update.message.reply_text("Unknown param.")
                 return
             await calc(result)
 
 async def list_cat(update: Update, context: CallbackContext) -> None:
-    global list_category
+    """
+        Format of list_cat
+        /list_cat
+    """
     formatted_list = '\n'.join([f'{category}' for i, category in enumerate(list_category)])
     await update.message.reply_text(f"Category list:\n {formatted_list}")
 
 async def remove(update: Update, context: CallbackContext) -> None:
+    """
+        Format of remove  command
+        /rem [index]
+    """
     user_id = update.message.from_user.id
     if not user_data.get(user_id):
         await update.message.reply_text("You don't have any transaction to remove")
@@ -319,12 +329,15 @@ async def remove(update: Update, context: CallbackContext) -> None:
         await update.message.reply_text("You entered an invalid index.")
 
 async def clear(update: Update, context: CallbackContext) -> None:
+    """
+        /clear
+    """
     user_id = update.message.from_user.id
     user_data[user_id] = []
     await update.message.reply_text("Cleared All successfully")
 
-
 def run():
+
     # load data in run
     load_data()
 
@@ -351,6 +364,3 @@ def run():
 
 if __name__ == "__main__":
     run()
-
-
-
